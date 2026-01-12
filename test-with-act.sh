@@ -94,4 +94,4 @@ echo "Running with act (Docker)..."
 echo "  Image: $CLI_IMAGE"
 echo "  Server: $SFP_SERVER_URL"
 echo ""
-act push -W "$TEMP_DIR/test.yml" --secret-file "$TEMP_DIR/.secrets" -b --pull=false
+act push -W "$TEMP_DIR/test.yml" --secret-file "$TEMP_DIR/.secrets" --pull=false

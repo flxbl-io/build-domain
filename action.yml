@@ -40,6 +40,10 @@ inputs:
     description: "NPM scope for publishing (without @)"
     required: false
     default: ${{ github.repository_owner }}
+  npm:
+    description: "Publish to external npm registry (when false, uses internal-only)"
+    required: false
+    default: "false"
   git-tag:
     description: "Create git tags for published artifacts"
     required: false
@@ -128,6 +132,8 @@ runs:
       id: check-artifacts
       shell: bash
       run: |
+        # Create artifacts dir if it doesn't exist
+        mkdir -p artifacts
         ARTIFACT_COUNT=$(find artifacts -name "*.zip" 2>/dev/null | wc -l | tr -d ' ')
         echo "artifact-count=$ARTIFACT_COUNT" >> $GITHUB_OUTPUT
 
@@ -146,11 +152,17 @@ runs:
         echo "Publishing artifacts..."
 
         CMD="sfp publish -d artifacts \
-          --npm \
-          --scope \"@${{ inputs.npm-scope }}\" \
           --repository \"${{ inputs.repository }}\" \
           --sfp-server-url \"${{ inputs.sfp-server-url }}\" \
-          -t \"${{ inputs.sfp-server-token }}\""
+          -t \"${{ inputs.sfp-server-token }}\" \
+          --scope \"${{ inputs.npm-scope }}\""
+
+        # Use --npm for external registry, --internal-only otherwise
+        if [[ "${{ inputs.npm }}" == "true" ]]; then
+          CMD="$CMD --npm"
+        else
+          CMD="$CMD --internal-only"
+        fi
 
         if [[ "${{ inputs.git-tag }}" == "true" ]]; then
           CMD="$CMD --gittag"
