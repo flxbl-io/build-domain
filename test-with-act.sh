@@ -28,16 +28,16 @@ PROJECT_PATH="$(pwd)"
 
 # Check prerequisites
 command -v act &>/dev/null || { echo "Error: act not installed. Run: brew install act"; exit 1; }
-docker info &>/dev/null || { echo "Error: Docker not running"; exit 1; }
 
-# Defaults
-SFP_SERVER_URL=""
-SFP_SERVER_TOKEN="00000000-0000-0000-0000-000000000005"
-SFP_WORKSPACE=""
+# Source shared detection script first (loads .env and auto-detects stack)
+FLXBL_ACTIONS_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
+source "$FLXBL_ACTIONS_ROOT/scripts/detect-sfp-stack.sh"
+
+# Defaults (after sourcing, so .env values are available)
 RELEASE_CONFIG=""
 REPOSITORY="$(basename $(dirname $PROJECT_PATH))/$(basename $PROJECT_PATH)"
 
-# Parse arguments
+# Parse arguments (override .env / auto-detected values)
 for arg in "$@"; do
   key="${arg%%=*}"
   val="${arg#*=}"
@@ -52,48 +52,8 @@ done
 
 [[ -z "$RELEASE_CONFIG" ]] && { echo "Error: release-config required"; exit 1; }
 
-# Auto-detect sfp workspace if not provided
-if [[ -z "$SFP_WORKSPACE" ]]; then
-  # Look for common sfp-pro locations
-  for candidate in \
-    "$HOME/projects/flxbl-io/sfp-pro/release-V3" \
-    "$HOME/projects/flxbl-io/sfp-pro/main" \
-    "$HOME/projects/flxbl-io/sfp-pro"; do
-    if [[ -d "$candidate" ]] && docker ps --filter "name=$(basename $candidate | tr '[:upper:]' '[:lower:]')-server-dev" --format '{{.Names}}' | grep -q .; then
-      SFP_WORKSPACE="$candidate"
-      break
-    fi
-  done
-fi
-
-if [[ -z "$SFP_WORKSPACE" ]]; then
-  echo "Error: Could not auto-detect sfp-pro workspace. Specify with sfp-workspace=<path>"
-  exit 1
-fi
-
-# Get workspace name (lowercased directory name)
-WORKSPACE_NAME=$(basename "$SFP_WORKSPACE" | tr '[:upper:]' '[:lower:]')
-echo "Using sfp workspace: $SFP_WORKSPACE ($WORKSPACE_NAME)"
-
-# Get the cli-lite-dev image from the compose stack
-CLI_IMAGE="${WORKSPACE_NAME}-cli-lite-dev"
-if ! docker images --format '{{.Repository}}' | grep -q "^${CLI_IMAGE}$"; then
-  echo "Error: Docker image '$CLI_IMAGE' not found. Is the compose stack running?"
-  echo "Available images: $(docker images --format '{{.Repository}}' | grep cli-lite || echo 'none')"
-  exit 1
-fi
-echo "Using Docker image: $CLI_IMAGE"
-
-# Auto-detect SFP Server URL if not provided
-if [[ -z "$SFP_SERVER_URL" ]]; then
-  SERVER_PORT=$(docker ps --filter "name=${WORKSPACE_NAME}-server-dev" --format '{{.Ports}}' | grep -oE '0\.0\.0\.0:([0-9]+)->3029' | grep -oE '[0-9]+' | head -1)
-  if [[ -z "$SERVER_PORT" ]]; then
-    echo "Error: Could not detect SFP Server port. Is the compose stack running?"
-    exit 1
-  fi
-  SFP_SERVER_URL="http://host.docker.internal:${SERVER_PORT}/"
-  echo "Auto-detected SFP Server URL: $SFP_SERVER_URL"
-fi
+# Run detection (uses values from .env or args if set)
+detect_sfp_stack || exit 1
 
 # Setup
 TEMP_DIR=$(mktemp -d)
