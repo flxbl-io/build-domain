@@ -1,0 +1,20 @@
+{
+  "name": "@flxbl-io/build",
+  "version": "1.0.0",
+  "description": "GitHub Action to build packages and publish artifacts via SFP Server",
+  "author": "flxbl-io",
+  "license": "SEE LICENSE IN LICENSE",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/flxbl-io/build.git"
+  },
+  "keywords": [
+    "github-action",
+    "salesforce",
+    "sfp",
+    "build",
+    "publish",
+    "sfp-server",
+    "flxbl"
+  ]
+}

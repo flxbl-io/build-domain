@@ -1,0 +1,12 @@
+name: Release
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  release:
+    uses: flxbl-io/flxbl-actions/.github/workflows/release.yml@main
+    secrets:
+      GHA_TOKEN: ${{ secrets.GHA_TOKEN }}
