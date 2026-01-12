@@ -1,6 +1,6 @@
 # Build Action
 
-[![CI](https://github.com/flxbl-io/build/actions/workflows/ci.yml/badge.svg)](https://github.com/flxbl-io/build/actions/workflows/ci.yml)
+[![CI](https://github.com/flxbl-io/build-domain/actions/workflows/ci.yml/badge.svg)](https://github.com/flxbl-io/build-domain/actions/workflows/ci.yml)
 
 A GitHub Action that builds Salesforce packages using `sfp build`, publishes artifacts using `sfp publish`, and generates a release candidate via [SFP Server](https://docs.flxbl.io/sfp-server).
 
@@ -18,7 +18,7 @@ A GitHub Action that builds Salesforce packages using `sfp build`, publishes art
 
 ```yaml
 - name: Build and Publish
-  uses: flxbl-io/build@v1
+  uses: flxbl-io/build-domain@v1
   with:
     sfp-server-url: ${{ secrets.SFP_SERVER_URL }}
     sfp-server-token: ${{ secrets.SFP_SERVER_TOKEN }}
@@ -40,7 +40,7 @@ jobs:
 
       - name: Build and Publish
         id: build
-        uses: flxbl-io/build@v1
+        uses: flxbl-io/build-domain@v1
         with:
           sfp-server-url: ${{ secrets.SFP_SERVER_URL }}
           sfp-server-token: ${{ secrets.SFP_SERVER_TOKEN }}
@@ -58,7 +58,7 @@ jobs:
 
 ```yaml
 - name: Build All Packages
-  uses: flxbl-io/build@v1
+  uses: flxbl-io/build-domain@v1
   with:
     sfp-server-url: ${{ secrets.SFP_SERVER_URL }}
     sfp-server-token: ${{ secrets.SFP_SERVER_TOKEN }}

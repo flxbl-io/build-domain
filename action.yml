@@ -1,4 +1,4 @@
-name: "Build"
+name: "Build Domain"
 description: "Build packages and publish artifacts via SFP Server"
 author: "flxbl-io"
 
@@ -74,7 +74,7 @@ runs:
         echo "------------------------------------------------------------------------------------------"
         echo "flxbl-actions  -- ❤️  by flxbl.io ❤️  -Version:1.0.0"
         echo "------------------------------------------------------------------------------------------"
-        echo "Action        : build"
+        echo "Action        : build-domain"
         echo "Repository    : ${{ inputs.repository }}"
         echo "Branch        : ${{ inputs.branch }}"
         echo "Build Number  : ${{ inputs.build-number }}"
