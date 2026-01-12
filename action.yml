@@ -96,7 +96,7 @@ runs:
           fi
         fi
         # Fetch all tags to ensure we have complete tag history
-        git fetch --tags || true
+        git fetch --tags 2>/dev/null || echo "::notice::Could not fetch tags (may require git credentials)"
 
     - name: Authenticate to DevHub
       shell: bash
@@ -180,8 +180,8 @@ runs:
       shell: bash
       run: |
         echo "Fetching newly created tags..."
-        git fetch --tags
-        echo "Tags fetched successfully"
+        git fetch --tags || echo "::warning::Could not fetch tags (may require git credentials)"
+        echo "Tags sync completed"
 
     - name: Generate release candidate
       if: steps.check-artifacts.outputs.has-artifacts == 'true'
