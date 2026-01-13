@@ -25793,7 +25793,7 @@ async function waitForLock(resource, repository, ticketId, timeout, serverUrl, s
         '--sfp-server-url', serverUrl,
         '--application-token', serverToken
     ];
-    core.info(`Waiting for build lock acquisition...`);
+    core.info(`Waiting for lock acquisition...`);
     core.info(`Timeout: ${timeout} seconds`);
     const result = await execCommandWithOutput('sfp', args, false);
     // Check for timeout message regardless of exit code (CLI may return 0 on timeout)
@@ -25804,8 +25804,24 @@ async function waitForLock(resource, repository, ticketId, timeout, serverUrl, s
     if (result.exitCode !== 0) {
         throw new Error(`Failed to acquire lock: ${result.stderr || result.stdout}`);
     }
-    core.info(`Build lock acquired for resource: ${resource}`);
+    core.info(`Lock acquired for resource: ${resource}`);
     return true;
+}
+async function dequeueResource(resource, repository, ticketId, serverUrl, serverToken) {
+    const args = [
+        'server', 'resource', 'dequeue',
+        '--repository', repository,
+        '--resource', resource,
+        '--ticketid', ticketId,
+        '--sfp-server-url', serverUrl,
+        '--application-token', serverToken
+    ];
+    core.info(`Releasing lock for resource: ${resource}`);
+    const result = await execCommandWithOutput('sfp', args, true);
+    if (result.exitCode !== 0) {
+        throw new Error(`Failed to release lock: ${result.stderr || result.stdout}`);
+    }
+    core.info(`Lock released for resource: ${resource}`);
 }
 async function checkGitDepth(diffCheck) {
     const result = await execCommandWithOutput('git', ['rev-parse', '--is-shallow-repository'], true);
@@ -25907,6 +25923,35 @@ async function fetchTagsAfterPublish() {
     core.info('Fetching newly created tags...');
     await exec.exec('git', ['fetch', '--tags'], { ignoreReturnCode: true });
     core.info('Tags sync completed');
+}
+async function publishWithGlobalLock(repository, serverUrl, serverToken, npmScope, npm, gitTag, pushGitTag) {
+    const PUBLISH_LEASE = 900; // 15 min max
+    const PUBLISH_TIMEOUT = 900; // 15 min wait
+    const publishResource = `publish-${repository.replace('/', '-')}`;
+    // Acquire global publish lock
+    core.info('');
+    core.info(`Acquiring global publish lock: ${publishResource}`);
+    const ticketId = await enqueueResource(publishResource, repository, PUBLISH_LEASE, serverUrl, serverToken);
+    const acquired = await waitForLock(publishResource, repository, ticketId, PUBLISH_TIMEOUT, serverUrl, serverToken);
+    if (!acquired) {
+        throw new Error(`Failed to acquire publish lock within timeout`);
+    }
+    try {
+        // Publish artifacts (includes git tag push)
+        await publishArtifacts(repository, serverUrl, serverToken, npmScope, npm, gitTag, pushGitTag);
+        // Fetch tags after publish
+        await fetchTagsAfterPublish();
+    }
+    finally {
+        // Always release publish lock
+        core.info(`Releasing global publish lock: ${publishResource}`);
+        try {
+            await dequeueResource(publishResource, repository, ticketId, serverUrl, serverToken);
+        }
+        catch (error) {
+            core.warning(`Failed to release publish lock: ${error instanceof Error ? error.message : 'unknown error'}`);
+        }
+    }
 }
 async function generateReleaseCandidate(releaseName, branch, buildNumber, releaseConfig, npmScope, repository, serverUrl, serverToken) {
     core.info('Generating release candidate...');
@@ -26010,11 +26055,9 @@ async function run() {
         core.setOutput('artifact-count', artifactCount.toString());
         core.setOutput('artifacts-dir', 'artifacts');
         if (hasArtifacts) {
-            // Step 6: Publish artifacts
-            await publishArtifacts(repository, serverUrl, serverToken, npmScope, npm, gitTag, pushGitTag);
-            // Step 7: Fetch tags after publish
-            await fetchTagsAfterPublish();
-            // Step 8: Generate release candidate
+            // Step 6: Publish with global lock (serializes git tag operations across all domains)
+            await publishWithGlobalLock(repository, serverUrl, serverToken, npmScope, npm, gitTag, pushGitTag);
+            // Step 7: Generate release candidate (outside publish lock)
             await generateReleaseCandidate(inputReleaseName, branch, buildNumber, releaseConfigPath, npmScope, repository, serverUrl, serverToken);
         }
         // Print summary
