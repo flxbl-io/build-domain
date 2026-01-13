@@ -72,6 +72,10 @@ outputs:
     description: "Number of artifacts produced"
   artifacts-dir:
     description: "Path to artifacts directory"
+  domain:
+    description: "The domain name (releaseName from release config)"
+  release-candidate:
+    description: "The generated release candidate name"
 
 runs:
   using: "node20"

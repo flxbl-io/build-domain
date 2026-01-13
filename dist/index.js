@@ -25976,16 +25976,17 @@ async function generateReleaseCandidate(releaseName, branch, buildNumber, releas
     }
     core.info(`Release candidate '${rcName}' generated successfully`);
 }
-function printSummary(hasArtifacts, artifactCount) {
+function printSummary(hasArtifacts, artifactCount, domain, rcName) {
     const line = '-'.repeat(90);
     console.log();
     console.log(line);
     console.log('Build Summary');
     console.log(line);
+    console.log(`Domain           : ${domain}`);
     if (hasArtifacts) {
         console.log(`Artifacts        : ${artifactCount} package(s) built`);
         console.log('Published        : Yes');
-        console.log('Release Candidate: Generated');
+        console.log(`Release Candidate: ${rcName}`);
     }
     else {
         console.log('Artifacts        : None (no changes detected)');
@@ -26050,10 +26051,14 @@ async function run() {
         await buildPackages(branch, buildNumber, releaseConfigPath, diffCheck, serverUrl, serverToken, repository);
         // Step 5: Check for artifacts
         const { hasArtifacts, artifactCount } = await checkArtifacts();
+        // Calculate release candidate name (same logic as generateReleaseCandidate)
+        const rcName = inputReleaseName || `${branch}-${buildNumber}`;
         // Set outputs
         core.setOutput('has-artifacts', hasArtifacts.toString());
         core.setOutput('artifact-count', artifactCount.toString());
         core.setOutput('artifacts-dir', 'artifacts');
+        core.setOutput('domain', releaseName);
+        core.setOutput('release-candidate', rcName);
         if (hasArtifacts) {
             // Step 6: Publish with global lock (serializes git tag operations across all domains)
             await publishWithGlobalLock(repository, serverUrl, serverToken, npmScope, npm, gitTag, pushGitTag);
@@ -26061,7 +26066,7 @@ async function run() {
             await generateReleaseCandidate(inputReleaseName, branch, buildNumber, releaseConfigPath, npmScope, repository, serverUrl, serverToken);
         }
         // Print summary
-        printSummary(hasArtifacts, artifactCount);
+        printSummary(hasArtifacts, artifactCount, releaseName, rcName);
     }
     catch (error) {
         if (error instanceof Error) {
