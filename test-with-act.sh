@@ -11,11 +11,15 @@
 #   ./test-with-act.sh <project-path> release-config=<path> [options]
 #
 # Options:
-#   sfp-server-url=<url>      Override SFP Server URL (default: auto-detect from compose stack)
-#   sfp-server-token=<token>  Override SFP Server token (default: dev token)
-#   sfp-workspace=<path>      Path to sfp-pro workspace (default: auto-detect)
-#   release-config=<path>     Path to release config (required)
-#   repository=<owner/repo>   Repository identifier (default: derived from project path)
+#   sfp-server-url=<url>        Override SFP Server URL (default: auto-detect from compose stack)
+#   sfp-server-token=<token>    Override SFP Server token (default: dev token)
+#   sfp-workspace=<path>        Path to sfp-pro workspace (default: auto-detect)
+#   release-config=<path>       Path to release config (required)
+#   repository=<owner/repo>     Repository identifier (default: derived from project path)
+#   serialize=<true|false>      Serialize builds (default: true)
+#   serialize-timeout=<seconds> Max wait time for lock (default: 900)
+#   serialize-lease=<seconds>   Lock lease duration (default: 1800)
+#   diff-check=<true|false>     Only build changed packages (default: true)
 
 set -e
 
@@ -36,6 +40,10 @@ source "$FLXBL_ACTIONS_ROOT/scripts/detect-sfp-stack.sh"
 # Defaults (after sourcing, so .env values are available)
 RELEASE_CONFIG=""
 REPOSITORY="$(basename $(dirname $PROJECT_PATH))/$(basename $PROJECT_PATH)"
+SERIALIZE="true"
+SERIALIZE_TIMEOUT="900"
+SERIALIZE_LEASE="1800"
+DIFF_CHECK="true"
 
 # Parse arguments (override .env / auto-detected values)
 for arg in "$@"; do
@@ -47,6 +55,10 @@ for arg in "$@"; do
     sfp-workspace) SFP_WORKSPACE="$val" ;;
     release-config) RELEASE_CONFIG="$val" ;;
     repository) REPOSITORY="$val" ;;
+    serialize) SERIALIZE="$val" ;;
+    serialize-timeout) SERIALIZE_TIMEOUT="$val" ;;
+    serialize-lease) SERIALIZE_LEASE="$val" ;;
+    diff-check) DIFF_CHECK="$val" ;;
   esac
 done
 
@@ -64,7 +76,7 @@ cp -r "$SCRIPT_DIR" "$PROJECT_PATH/.github/actions/build"
 
 # Create workflow using local cli-lite-dev image
 cat > "$TEMP_DIR/test.yml" << EOF
-name: Test
+name: Test Build Domain
 on: [push]
 jobs:
   build:
@@ -82,6 +94,10 @@ jobs:
           repository: "$REPOSITORY"
           git-tag: "false"
           push-git-tag: "false"
+          serialize: "$SERIALIZE"
+          serialize-timeout: "$SERIALIZE_TIMEOUT"
+          serialize-lease: "$SERIALIZE_LEASE"
+          diff-check: "$DIFF_CHECK"
 EOF
 
 cat > "$TEMP_DIR/.secrets" << EOF
@@ -90,8 +106,19 @@ SFP_SERVER_TOKEN=$SFP_SERVER_TOKEN
 EOF
 
 echo ""
-echo "Running with act (Docker)..."
+echo "=== Build Domain Action Test ==="
+echo ""
 echo "  Image: $CLI_IMAGE"
 echo "  Server: $SFP_SERVER_URL"
+echo "  Release Config: $RELEASE_CONFIG"
+echo "  Repository: $REPOSITORY"
+echo "  Serialize: $SERIALIZE"
+echo "  Serialize Timeout: $SERIALIZE_TIMEOUT"
+echo "  Serialize Lease: $SERIALIZE_LEASE"
+echo "  Diff Check: $DIFF_CHECK"
 echo ""
+
 act push -W "$TEMP_DIR/test.yml" --secret-file "$TEMP_DIR/.secrets" --pull=false
+
+echo ""
+echo "=== Test Complete ==="

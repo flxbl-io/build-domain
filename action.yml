@@ -52,175 +52,29 @@ inputs:
     description: "Push git tags to remote repository"
     required: false
     default: "true"
+  serialize:
+    description: "Serialize builds for this domain (prevents concurrent builds)"
+    required: false
+    default: "true"
+  serialize-timeout:
+    description: "Max seconds to wait for serialization lock"
+    required: false
+    default: "900"
+  serialize-lease:
+    description: "Duration in seconds to hold the serialization lock"
+    required: false
+    default: "1800"
 
 outputs:
   has-artifacts:
     description: "Whether artifacts were produced (true/false)"
-    value: ${{ steps.check-artifacts.outputs.has-artifacts }}
   artifact-count:
     description: "Number of artifacts produced"
-    value: ${{ steps.check-artifacts.outputs.artifact-count }}
   artifacts-dir:
     description: "Path to artifacts directory"
-    value: "artifacts"
 
 runs:
-  using: "composite"
-
-  steps:
-    - name: Print header
-      shell: bash
-      run: |
-        echo "------------------------------------------------------------------------------------------"
-        echo "flxbl-actions  -- ❤️  by flxbl.io ❤️  -Version:1.0.0"
-        echo "------------------------------------------------------------------------------------------"
-        echo "Action        : build-domain"
-        echo "Repository    : ${{ inputs.repository }}"
-        echo "Branch        : ${{ inputs.branch }}"
-        echo "Build Number  : ${{ inputs.build-number }}"
-        echo "Release Config: ${{ inputs.release-config }}"
-        echo "Diff Check    : ${{ inputs.diff-check }}"
-        echo "SFP Server    : ${{ inputs.sfp-server-url }}"
-        echo "------------------------------------------------------------------------------------------"
-        echo ""
-
-    - name: Check git depth
-      shell: bash
-      run: |
-        # Check if this is a shallow clone
-        if git rev-parse --is-shallow-repository | grep -q true; then
-          echo "::warning::Shallow clone detected. For diff-check to work correctly, use 'fetch-depth: 0' in your checkout step."
-          if [[ "${{ inputs.diff-check }}" == "true" ]]; then
-            echo "Fetching full history for diff-check..."
-            git fetch --unshallow --tags || true
-          fi
-        fi
-        # Fetch all tags to ensure we have complete tag history
-        git fetch --tags 2>/dev/null || echo "::notice::Could not fetch tags (may require git credentials)"
-
-    - name: Authenticate to DevHub
-      shell: bash
-      run: |
-        echo "Authenticating to default DevHub via SFP Server..."
-        sfp org login --server --default-devhub --alias devhub \
-          --sfp-server-url "${{ inputs.sfp-server-url }}" \
-          -t "${{ inputs.sfp-server-token }}"
-        echo "DevHub authentication successful"
-
-    - name: Build packages
-      shell: bash
-      run: |
-        echo "Building packages..."
-
-        CMD="sfp build -v devhub \
-          --branch \"${{ inputs.branch }}\" \
-          --buildnumber \"${{ inputs.build-number }}\" \
-          --artifactdir artifacts \
-          --sfp-server-url \"${{ inputs.sfp-server-url }}\" \
-          -t \"${{ inputs.sfp-server-token }}\" \
-          --repository \"${{ inputs.repository }}\" \
-          --releaseconfig \"${{ inputs.release-config }}\""
-
-        if [[ "${{ inputs.diff-check }}" == "true" ]]; then
-          CMD="$CMD --diffcheck"
-        fi
-
-        eval $CMD
-        echo "Build completed"
-
-    - name: Check for artifacts
-      id: check-artifacts
-      shell: bash
-      run: |
-        # Create artifacts dir if it doesn't exist
-        mkdir -p artifacts
-        ARTIFACT_COUNT=$(find artifacts -name "*.zip" 2>/dev/null | wc -l | tr -d ' ')
-        echo "artifact-count=$ARTIFACT_COUNT" >> $GITHUB_OUTPUT
-
-        if [[ "$ARTIFACT_COUNT" -eq 0 ]]; then
-          echo "::warning::No artifacts were produced by the build"
-          echo "has-artifacts=false" >> $GITHUB_OUTPUT
-        else
-          echo "Found $ARTIFACT_COUNT artifact(s)"
-          echo "has-artifacts=true" >> $GITHUB_OUTPUT
-        fi
-
-    - name: Publish artifacts
-      if: steps.check-artifacts.outputs.has-artifacts == 'true'
-      shell: bash
-      run: |
-        echo "Publishing artifacts..."
-
-        CMD="sfp publish -d artifacts \
-          --repository \"${{ inputs.repository }}\" \
-          --sfp-server-url \"${{ inputs.sfp-server-url }}\" \
-          -t \"${{ inputs.sfp-server-token }}\" \
-          --scope \"${{ inputs.npm-scope }}\""
-
-        # Use --npm for external registry, --internal-only otherwise
-        if [[ "${{ inputs.npm }}" == "true" ]]; then
-          CMD="$CMD --npm"
-        else
-          CMD="$CMD --internal-only"
-        fi
-
-        if [[ "${{ inputs.git-tag }}" == "true" ]]; then
-          CMD="$CMD --gittag"
-        fi
-
-        if [[ "${{ inputs.push-git-tag }}" == "true" ]]; then
-          CMD="$CMD --pushgittag"
-        fi
-
-        eval $CMD
-        echo "Publish completed"
-
-    - name: Fetch tags after publish
-      if: steps.check-artifacts.outputs.has-artifacts == 'true'
-      shell: bash
-      run: |
-        echo "Fetching newly created tags..."
-        git fetch --tags || echo "::warning::Could not fetch tags (may require git credentials)"
-        echo "Tags sync completed"
-
-    - name: Generate release candidate
-      if: steps.check-artifacts.outputs.has-artifacts == 'true'
-      shell: bash
-      run: |
-        echo "Generating release candidate..."
-
-        # Use provided release name or generate default
-        RELEASE_NAME="${{ inputs.release-name }}"
-        if [[ -z "$RELEASE_NAME" ]]; then
-          RELEASE_NAME="${{ inputs.branch }}-${{ inputs.build-number }}"
-        fi
-
-        sfp releasecandidate generate \
-          -n "$RELEASE_NAME" \
-          -c HEAD \
-          -b "${{ inputs.branch }}" \
-          -f "${{ inputs.release-config }}" \
-          --scope "@${{ inputs.npm-scope }}" \
-          --repository "${{ inputs.repository }}" \
-          --sfp-server-url "${{ inputs.sfp-server-url }}" \
-          -t "${{ inputs.sfp-server-token }}"
-
-        echo "Release candidate '$RELEASE_NAME' generated successfully"
-
-    - name: Summary
-      shell: bash
-      run: |
-        echo ""
-        echo "------------------------------------------------------------------------------------------"
-        echo "Build Summary"
-        echo "------------------------------------------------------------------------------------------"
-        if [[ "${{ steps.check-artifacts.outputs.has-artifacts }}" == "true" ]]; then
-          echo "Artifacts     : ${{ steps.check-artifacts.outputs.artifact-count }} package(s) built"
-          echo "Published     : Yes"
-          echo "Release Candidate: Generated"
-        else
-          echo "Artifacts     : None (no changes detected)"
-          echo "Published     : Skipped"
-          echo "Release Candidate: Skipped"
-        fi
-        echo "------------------------------------------------------------------------------------------"
+  using: "node20"
+  main: "dist/index.js"
+  post: "dist/cleanup.js"
+  post-if: "always()"

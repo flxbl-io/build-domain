@@ -1,2 +1,23 @@
+# Dependencies
 node_modules/
+
+# TypeScript compiled output (intermediate, not needed)
+lib/
+
+# OS files
 .DS_Store
+
+# Logs
+*.log
+npm-debug.log*
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Test coverage
+coverage/
+
+# Note: dist/ is NOT ignored - it must be committed for GitHub Actions
