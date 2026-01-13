@@ -297,9 +297,12 @@ async function publishArtifacts(
     '-d', 'artifacts',
     '--repository', repository,
     '--sfp-server-url', serverUrl,
-    '-t', serverToken,
-    '--scope', npmScope
+    '-t', serverToken
   ];
+
+  if (npmScope) {
+    args.push('--scope', npmScope);
+  }
 
   if (npm) {
     args.push('--npm');
@@ -351,11 +354,14 @@ async function generateReleaseCandidate(
     '-c', 'HEAD',
     '-b', branch,
     '-f', releaseConfig,
-    '--scope', `@${npmScope}`,
     '--repository', repository,
     '--sfp-server-url', serverUrl,
     '-t', serverToken
   ];
+
+  if (npmScope) {
+    args.push('--scope', `@${npmScope}`);
+  }
 
   const exitCode = await execCommandStreaming('sfp', args);
 
