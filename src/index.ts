@@ -3,6 +3,7 @@ import * as exec from '@actions/exec';
 import * as fs from 'fs';
 import * as yaml from 'yaml';
 import * as path from 'path';
+import { fetchGitHubToken } from './shared/github-token';
 
 // eslint-disable-next-line @typescript-eslint/no-var-requires
 const { version: VERSION } = require('../package.json');
@@ -495,6 +496,10 @@ export async function run(): Promise<void> {
 
     // Print header
     printHeader(repository, branch, buildNumber, releaseConfigPath, diffCheck.toString(), serverUrl, serialize, releaseName);
+
+    // Fetch GitHub token from SFP Server (fresh token for each run)
+    const ghToken = await fetchGitHubToken(serverUrl, serverToken, repository);
+    process.env.GITHUB_TOKEN = ghToken;
 
     // Step 1: Serialize (if enabled)
     let ticketId = '';

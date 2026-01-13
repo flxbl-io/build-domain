@@ -25643,6 +25643,104 @@ module.exports = {
 
 /***/ }),
 
+/***/ 4768:
+/***/ (function(__unused_webpack_module, exports, __nccwpck_require__) {
+
+"use strict";
+
+var __createBinding = (this && this.__createBinding) || (Object.create ? (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    var desc = Object.getOwnPropertyDescriptor(m, k);
+    if (!desc || ("get" in desc ? !m.__esModule : desc.writable || desc.configurable)) {
+      desc = { enumerable: true, get: function() { return m[k]; } };
+    }
+    Object.defineProperty(o, k2, desc);
+}) : (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    o[k2] = m[k];
+}));
+var __setModuleDefault = (this && this.__setModuleDefault) || (Object.create ? (function(o, v) {
+    Object.defineProperty(o, "default", { enumerable: true, value: v });
+}) : function(o, v) {
+    o["default"] = v;
+});
+var __importStar = (this && this.__importStar) || (function () {
+    var ownKeys = function(o) {
+        ownKeys = Object.getOwnPropertyNames || function (o) {
+            var ar = [];
+            for (var k in o) if (Object.prototype.hasOwnProperty.call(o, k)) ar[ar.length] = k;
+            return ar;
+        };
+        return ownKeys(o);
+    };
+    return function (mod) {
+        if (mod && mod.__esModule) return mod;
+        var result = {};
+        if (mod != null) for (var k = ownKeys(mod), i = 0; i < k.length; i++) if (k[i] !== "default") __createBinding(result, mod, k[i]);
+        __setModuleDefault(result, mod);
+        return result;
+    };
+})();
+Object.defineProperty(exports, "__esModule", ({ value: true }));
+exports.fetchGitHubToken = fetchGitHubToken;
+const core = __importStar(__nccwpck_require__(7484));
+/**
+ * Fetches a fresh GitHub token from SFP Server.
+ * Tokens are short-lived, so this should be called before operations that need GitHub access.
+ */
+async function fetchGitHubToken(serverUrl, serverToken, repository) {
+    const MAX_RETRIES = 3;
+    const RETRY_DELAY = 5000;
+    let lastError = null;
+    for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
+        try {
+            core.info(`Fetching GitHub token (attempt ${attempt}/${MAX_RETRIES})...`);
+            const apiUrl = new URL('/sfp/api/repository/auth-token', serverUrl);
+            apiUrl.searchParams.append('repositoryIdentifier', repository);
+            const response = await fetch(apiUrl.toString(), {
+                method: 'GET',
+                headers: {
+                    'Authorization': `Bearer ${serverToken}`,
+                    'Content-Type': 'application/json',
+                    'Accept': 'application/json'
+                }
+            });
+            if (!response.ok) {
+                let errorMessage = `HTTP ${response.status}: ${response.statusText}`;
+                try {
+                    const errorData = await response.json();
+                    if (errorData.message) {
+                        errorMessage = errorData.message;
+                    }
+                }
+                catch {
+                    // Use default error message
+                }
+                throw new Error(`Failed to get token: ${errorMessage}`);
+            }
+            const data = await response.json();
+            if (!data.token) {
+                throw new Error('Response did not contain a token');
+            }
+            core.setSecret(data.token);
+            core.info(`GitHub token retrieved (expires: ${data.expiresAt})`);
+            return data.token;
+        }
+        catch (error) {
+            lastError = error instanceof Error ? error : new Error(String(error));
+            core.warning(`Attempt ${attempt} failed: ${lastError.message}`);
+            if (attempt < MAX_RETRIES) {
+                core.info(`Retrying in ${RETRY_DELAY / 1000} seconds...`);
+                await new Promise(resolve => setTimeout(resolve, RETRY_DELAY));
+            }
+        }
+    }
+    throw new Error(`Failed to get GitHub token after ${MAX_RETRIES} attempts. Last error: ${lastError?.message || 'Unknown error'}`);
+}
+
+
+/***/ }),
+
 /***/ 9407:
 /***/ (function(__unused_webpack_module, exports, __nccwpck_require__) {
 
@@ -25688,6 +25786,7 @@ const exec = __importStar(__nccwpck_require__(5236));
 const fs = __importStar(__nccwpck_require__(9896));
 const yaml = __importStar(__nccwpck_require__(8815));
 const path = __importStar(__nccwpck_require__(6928));
+const github_token_1 = __nccwpck_require__(4768);
 // eslint-disable-next-line @typescript-eslint/no-var-requires
 const { version: VERSION } = __nccwpck_require__(8330);
 const ACTION_NAME = 'build-domain';
@@ -26025,6 +26124,9 @@ async function run() {
         const releaseName = releaseConfig.releaseName;
         // Print header
         printHeader(repository, branch, buildNumber, releaseConfigPath, diffCheck.toString(), serverUrl, serialize, releaseName);
+        // Fetch GitHub token from SFP Server (fresh token for each run)
+        const ghToken = await (0, github_token_1.fetchGitHubToken)(serverUrl, serverToken, repository);
+        process.env.GITHUB_TOKEN = ghToken;
         // Step 1: Serialize (if enabled)
         let ticketId = '';
         if (serialize) {
@@ -36565,7 +36667,7 @@ exports.visitAsync = visitAsync;
 /***/ ((module) => {
 
 "use strict";
-module.exports = /*#__PURE__*/JSON.parse('{"name":"@flxbl-io/build-domain","version":"1.0.0","description":"GitHub Action to build packages and publish artifacts via SFP Server","main":"dist/index.js","author":"flxbl-io","license":"SEE LICENSE IN LICENSE","repository":{"type":"git","url":"https://github.com/flxbl-io/build-domain.git"},"keywords":["github-action","salesforce","sfp","build","publish","sfp-server","flxbl"],"scripts":{"build":"tsc && npm run package","package":"ncc build src/index.ts -o dist --source-map --license licenses.txt && ncc build src/cleanup.ts -o dist/cleanup --source-map && mv dist/cleanup/index.js dist/cleanup.js && rm -rf dist/cleanup"},"dependencies":{"@actions/core":"^1.10.1","@actions/exec":"^1.1.1","yaml":"^2.3.4"},"devDependencies":{"@types/node":"^20.10.0","@vercel/ncc":"^0.38.1","typescript":"^5.3.2"}}');
+module.exports = /*#__PURE__*/JSON.parse('{"name":"@flxbl-io/build-domain","version":"1.0.0","description":"GitHub Action to build packages and publish artifacts via SFP Server","main":"dist/index.js","author":"flxbl-io","license":"SEE LICENSE IN LICENSE","repository":{"type":"git","url":"https://github.com/flxbl-io/build-domain.git"},"keywords":["github-action","salesforce","sfp","build","publish","sfp-server","flxbl"],"scripts":{"prebuild":"npm run copy-shared","copy-shared":"rm -rf src/shared && cp -r ../shared/src src/shared","build":"tsc && npm run package","package":"ncc build src/index.ts -o dist --source-map --license licenses.txt && ncc build src/cleanup.ts -o dist/cleanup --source-map && mv dist/cleanup/index.js dist/cleanup.js && rm -rf dist/cleanup"},"dependencies":{"@actions/core":"^1.10.1","@actions/exec":"^1.1.1","yaml":"^2.3.4"},"devDependencies":{"@types/node":"^20.10.0","@vercel/ncc":"^0.38.1","typescript":"^5.3.2"}}');
 
 /***/ })
 

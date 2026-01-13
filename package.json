@@ -19,6 +19,8 @@
     "flxbl"
   ],
   "scripts": {
+    "prebuild": "npm run copy-shared",
+    "copy-shared": "rm -rf src/shared && cp -r ../shared/src src/shared",
     "build": "tsc && npm run package",
     "package": "ncc build src/index.ts -o dist --source-map --license licenses.txt && ncc build src/cleanup.ts -o dist/cleanup --source-map && mv dist/cleanup/index.js dist/cleanup.js && rm -rf dist/cleanup"
   },
