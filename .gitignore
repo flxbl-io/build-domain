@@ -24,3 +24,4 @@ npm-debug.log*
 coverage/
 
 # Note: dist/ is NOT ignored - it must be committed for GitHub Actions
+*.map
