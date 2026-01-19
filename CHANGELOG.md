@@ -1,5 +1,20 @@
 # Changelog
 
+## [1.1.0](https://github.com/flxbl-io/build-domain/compare/v1.0.0...v1.1.0) (2026-01-19)
+
+
+### Features
+
+* add domain and release-candidate outputs to build-domain ([c76243b](https://github.com/flxbl-io/build-domain/commit/c76243b649dc5a15666d2ada89526d158f1108ca))
+* add serialization support and convert to Node.js action ([f4ddb48](https://github.com/flxbl-io/build-domain/commit/f4ddb484e8b7a9df585ba62398a90995fde26a95))
+* add two-phase locking with global publish lock ([4781b84](https://github.com/flxbl-io/build-domain/commit/4781b84d11a2181ab394544a2d230813e9ef411c))
+* fetch GitHub token from SFP Server ([43650ba](https://github.com/flxbl-io/build-domain/commit/43650ba77bd4486a01d23b663d4c91dce63d4e56))
+
+
+### Bug Fixes
+
+* make npm-scope optional in publish and release candidate ([246d7b8](https://github.com/flxbl-io/build-domain/commit/246d7b8ae4672798b50cdadb4d10fa33b8252c6e))
+
 ## 1.0.0 (2026-01-12)
 
 
